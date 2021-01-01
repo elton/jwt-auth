@@ -1,25 +1,13 @@
-// Copyright 2020 Elton Zheng
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/dgrijalva/jwt-go/v4"
@@ -67,6 +55,18 @@ type TokenDetails struct {
 	RefreshUUID  string `json:"refresh_uuid"`
 	AtExpires    int64  `json:"at_expires"`
 	RtExpires    int64  `json:"rt_expires"`
+}
+
+// Todo is a struct for presentation what should be done in future.
+type Todo struct {
+	UserID uint64 `json:"user_id"`
+	Title  string `json:"title"`
+}
+
+// AccessDetails includes access uuid and user id.
+type AccessDetails struct {
+	AccessUUID string `json:"access_uuid"`
+	UserID     uint64 `json:"user_id"`
 }
 
 var user = User{
@@ -165,7 +165,103 @@ func Login(c *gin.Context) {
 	c.JSON(http.StatusOK, tokens)
 }
 
+// ExtractToken extracts the token from request headers.
+func ExtractToken(r *http.Request) string {
+	bearToken := r.Header.Get("Authorization")
+	strArr := strings.Split(bearToken, " ")
+	if len(strArr) == 2 {
+		return strArr[1]
+	}
+	return ""
+}
+
+// VerifyToken verifies the token method
+func VerifyToken(r *http.Request) (*jwt.Token, error) {
+	tokenString := ExtractToken(r)
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		// Make sure that the token method conform to "SigningMethodHMAC"
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected sigining method: %v", token.Header["alg"])
+		}
+		return []byte(os.Getenv("ACCESS_SECRET")), nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return token, nil
+}
+
+// TokenVaild check the validity of this token.
+func TokenVaild(r *http.Request) error {
+	token, err := VerifyToken(r)
+	if err != nil {
+		return err
+	}
+	if _, ok := token.Claims.(jwt.Claims); !ok && !token.Valid {
+		return err
+	}
+	return nil
+}
+
+// ExtractTokenMetadata return an `AccessDetails` struct containing the metadata(`access_uuid` and `user_id`)
+func ExtractTokenMetadata(r *http.Request) (*AccessDetails, error) {
+	token, err := VerifyToken(r)
+	if err != nil {
+		return nil, err
+	}
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if ok && token.Valid {
+		accessUUID, ok := claims["access_uuid"].(string)
+		if !ok {
+			return nil, err
+		}
+		userID, err := strconv.ParseUint(fmt.Sprintf("%.f", claims["user_id"]), 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		return &AccessDetails{
+			AccessUUID: accessUUID,
+			UserID:     userID,
+		}, nil
+	}
+	return nil, err
+}
+
+// FetchAuth accepts the `AccessDetails` from the `ExtractTokenMetadata` function, then looks it up in redis.
+func FetchAuth(authD *AccessDetails) (uint64, error) {
+	userid, err := client.Get(ctx, authD.AccessUUID).Result()
+	if err != nil {
+		return 0, err
+	}
+	userID, _ := strconv.ParseUint(userid, 10, 64)
+	return userID, nil
+}
+
+// CreateTodo creates a new Todo
+func CreateTodo(c *gin.Context) {
+	var td *Todo
+	if err := c.ShouldBindJSON(&td); err != nil {
+		c.JSON(http.StatusUnprocessableEntity, "invalid json")
+		return
+	}
+
+	tokenAuth, err := ExtractTokenMetadata(c.Request)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	userID, err := FetchAuth(tokenAuth)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	td.UserID = userID
+
+	c.JSON(http.StatusCreated, td)
+}
+
 func main() {
 	router.POST("/login", Login)
+	router.POST("/todo", CreateTodo)
 	log.Fatal(router.Run(":8080"))
 }
