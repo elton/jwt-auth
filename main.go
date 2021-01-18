@@ -16,6 +16,8 @@ import (
 	"github.com/twinj/uuid"
 )
 
+// https://learn.vonage.com/blog/2020/03/13/using-jwt-for-authentication-in-a-golang-application-dr/
+
 var (
 	router = gin.Default()
 	client *redis.Client
