@@ -133,6 +133,13 @@ func CreateAuth(userID int64, td *TokenDetails) error {
 }
 
 // Login login handler for user login.
+// curl -i -X POST \
+//   http://127.0.0.1:8080/login \
+//   -H 'cache-control: no-cache' \
+//   -H 'content-type: application/json' \
+//   -d '{
+//         "username":"username","password":"password"
+// }'
 func Login(c *gin.Context) {
 	var u User
 	if err := c.ShouldBindJSON(&u); err != nil {
@@ -237,6 +244,14 @@ func FetchAuth(authD *AccessDetails) (uint64, error) {
 	return userID, nil
 }
 
+// curl -i -X POST \
+// -H 'Accept: application/json' \
+// -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2Nlc3NfdXVpZCI6IjBlNmRlNDkxLWViOGMtNGE5NC1hZjY3LWU3NDkxOTdmOTI3NiIsImF1dGhvcml6ZWQiOnRydWUsImV4cCI6MTYwOTQ5OTM5OCwidXNlcl9pZCI6MX0.5CCuL1RifAAMLEsZH6GUU6X5qnOp3OEx2lP3OyqP1AY" \
+// -d '{
+//         "title":"my first todo"
+// }' \
+// http://127.0.0.1:8080/todo
+
 // CreateTodo creates a new Todo
 func CreateTodo(c *gin.Context) {
 	var td *Todo
@@ -250,6 +265,7 @@ func CreateTodo(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, "unauthorized")
 		return
 	}
+	// 通过AccessUUID查询用户的ID，如果AccessUUID不存在，则说明没有登录过。
 	userID, err := FetchAuth(tokenAuth)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, "unauthorized")
@@ -260,8 +276,33 @@ func CreateTodo(c *gin.Context) {
 	c.JSON(http.StatusCreated, td)
 }
 
+// DeleteAuth delete JWT info from Redis when user logs out.
+func DeleteAuth(givenUuid string) (int64, error) {
+	deleted, err := client.Del(ctx, givenUuid).Result()
+	if err != nil {
+		return 0, err
+	}
+	return deleted, nil
+}
+
+// Logout log out handler
+func Logout(c *gin.Context) {
+	au, err := ExtractTokenMetadata(c.Request)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	deleted, delErr := DeleteAuth(au.AccessUUID)
+	if delErr != nil || deleted == 0 {
+		c.JSON(http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	c.JSON(http.StatusOK, "successfully logged out")
+}
+
 func main() {
 	router.POST("/login", Login)
 	router.POST("/todo", CreateTodo)
+	router.POST("/logout", Logout)
 	log.Fatal(router.Run(":8080"))
 }
