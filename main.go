@@ -153,12 +153,14 @@ func Login(c *gin.Context) {
 		return
 	}
 
+	// Create a new token for the user.
 	ts, err := CreateToken(user.ID)
 	if err != nil {
 		c.JSON(http.StatusUnprocessableEntity, err.Error())
 		return
 	}
 
+	// save userID and token in the redis.
 	saveErr := CreateAuth(user.ID, ts)
 	if saveErr != nil {
 		c.JSON(http.StatusUnprocessableEntity, saveErr.Error())
@@ -277,8 +279,9 @@ func CreateTodo(c *gin.Context) {
 }
 
 // DeleteAuth delete JWT info from Redis when user logs out.
-func DeleteAuth(givenUuid string) (int64, error) {
-	deleted, err := client.Del(ctx, givenUuid).Result()
+// delete UserID through AccessUUID Key.
+func DeleteAuth(givenUUID string) (int64, error) {
+	deleted, err := client.Del(ctx, givenUUID).Result()
 	if err != nil {
 		return 0, err
 	}
@@ -300,9 +303,22 @@ func Logout(c *gin.Context) {
 	c.JSON(http.StatusOK, "successfully logged out")
 }
 
+// TokenAuthMiddleware a middleware to secure some routes.
+func TokenAuthMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		err := TokenVaild(c.Request)
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, err.Error())
+			c.Abort()
+			return
+		}
+		c.Next()
+	}
+}
+
 func main() {
 	router.POST("/login", Login)
-	router.POST("/todo", CreateTodo)
-	router.POST("/logout", Logout)
+	router.POST("/todo", TokenAuthMiddleware(), CreateTodo)
+	router.POST("/logout", TokenAuthMiddleware(), Logout)
 	log.Fatal(router.Run(":8080"))
 }
