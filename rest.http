@@ -1,4 +1,4 @@
-# Login
+### Login
 POST http://127.0.0.1:8080/login HTTP/1.1
 cache-control: no-cache 
 content-type: application/json
@@ -8,8 +8,7 @@ content-type: application/json
   "password":"password"
 }
 
-# add a todo item
-
+### add a todo item
 POST http://127.0.0.1:8080/todo HTTP/1.1
 cache-control: no-cache 
 content-type: application/json
@@ -19,7 +18,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2Nlc3NfdXVpZCI6I
   "title":"my first todo"
 }
 
-# logout
+### logout
 POST http://127.0.0.1:8080/logout HTTP/1.1
 cache-control: no-cache 
 content-type: application/json
