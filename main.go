@@ -323,6 +323,7 @@ func Refresh(c *gin.Context) {
 		c.JSON(http.StatusUnprocessableEntity, err.Error())
 		return
 	}
+	// Get the refresh token from the request data.
 	refreshToken := mapToken["refresh_token"]
 
 	// verifies the token
