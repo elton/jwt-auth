@@ -319,6 +319,7 @@ func TokenAuthMiddleware() gin.HandlerFunc {
 }
 
 // Refresh refresh the token
+// 为了安全起见，Refresh token 必须在授权后才能被调用
 func Refresh(c *gin.Context) {
 	mapToken := map[string]string{}
 	if err := c.ShouldBindJSON(&mapToken); err != nil {
