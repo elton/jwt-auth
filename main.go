@@ -280,6 +280,11 @@ func CreateTodo(c *gin.Context) {
 	c.JSON(http.StatusCreated, td)
 }
 
+func getTodos(c *gin.Context) {
+	var todos = []string{"break", "continue", "fallthrough"}
+	c.JSON(http.StatusOK, todos)
+}
+
 // DeleteAuth delete JWT info from Redis when user logs out.
 // delete UserID through AccessUUID Key.
 func DeleteAuth(givenUUID string) (int64, error) {
@@ -397,6 +402,7 @@ func main() {
 	router.POST("/login", Login)
 	router.POST("/todo", TokenAuthMiddleware(), CreateTodo)
 	router.POST("/logout", TokenAuthMiddleware(), Logout)
+	router.GET("/todos", TokenAuthMiddleware(), getTodos)
 	router.POST("/token/refresh", Refresh)
 	log.Fatal(router.Run(":8080"))
 }

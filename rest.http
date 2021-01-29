@@ -18,6 +18,12 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2Nlc3NfdXVpZCI6I
   "title":"my first todo"
 }
 
+### get todos
+GET http://127.0.0.1:8080/todos HTTP/1.1
+cache-control: no-cache 
+content-type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2Nlc3NfdXVpZCI6ImU1YWFiM2E1LWMzOWUtNDdkOC1iMzNkLTViNTZkNGZjNDgxMiIsImF1dGhvcml6ZWQiOnRydWUsImV4cCI6MTYxMTkxMTg5NSwidXNlcl9pZCI6MX0.rvke64ZB9Ligg8cdnS4jI_HlBj7n41op8PTlIL4bj1c
+
 ### logout
 POST http://127.0.0.1:8080/logout HTTP/1.1
 cache-control: no-cache 
