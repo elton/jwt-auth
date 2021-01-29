@@ -173,6 +173,7 @@ func Login(c *gin.Context) {
 		"refresh_token": ts.RefreshToken,
 	}
 
+	c.SetCookie("access_token", tokens["access_token"], 3600, "/", "localhost", false, true)
 	c.JSON(http.StatusOK, tokens)
 }
 
