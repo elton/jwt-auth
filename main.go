@@ -187,6 +187,16 @@ func ExtractToken(r *http.Request) string {
 	return ""
 }
 
+// ExtractTokenFromCookie extracts the token from cookie.
+func ExtractTokenFromCookie(c *gin.Context) string {
+	token, err := c.Cookie("access_token")
+	if err != nil {
+		c.JSON(http.StatusUnprocessableEntity, err.Error())
+		return ""
+	}
+	return token
+}
+
 // VerifyToken verifies the token method
 func VerifyToken(r *http.Request) (*jwt.Token, error) {
 	tokenString := ExtractToken(r)
@@ -203,9 +213,37 @@ func VerifyToken(r *http.Request) (*jwt.Token, error) {
 	return token, nil
 }
 
+// VerifyTokenFromCookie verifies the token from a cookie.
+func VerifyTokenFromCookie(c *gin.Context) (*jwt.Token, error) {
+	tokenString := ExtractTokenFromCookie(c)
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		// Make sure that the token method conform to "SigningMethodHMAC"
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected sigining method: %v", token.Header["alg"])
+		}
+		return []byte(os.Getenv("ACCESS_SECRET")), nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return token, nil
+}
+
 // TokenVaild check the validity of this token.
 func TokenVaild(r *http.Request) error {
 	token, err := VerifyToken(r)
+	if err != nil {
+		return err
+	}
+	if _, ok := token.Claims.(jwt.Claims); !ok && !token.Valid {
+		return err
+	}
+	return nil
+}
+
+// TokenVaildFromCookie check the validity of this token.
+func TokenVaildFromCookie(c *gin.Context) error {
+	token, err := VerifyTokenFromCookie(c)
 	if err != nil {
 		return err
 	}
@@ -314,7 +352,8 @@ func Logout(c *gin.Context) {
 // TokenAuthMiddleware a middleware to secure some routes.
 func TokenAuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		err := TokenVaild(c.Request)
+		// err := TokenVaild(c.Request)
+		err := TokenVaildFromCookie(c)
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, err.Error())
 			c.Abort()
